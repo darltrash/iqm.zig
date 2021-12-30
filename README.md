@@ -26,7 +26,7 @@ try renderer.renderMesh(modelB, meshB);
 <br>&emsp;Creates a `Model` struct out of `data` which could return an error at handling memory, reading the header or finding invalid data.
 
 - **`fromFile(name: []const u8, isEXM: ?bool, alloc: std.mem.Allocator) !Model`**:
-<br>&emsp;Creates a `Model` struct out of the file specified by `name` (relative to `CWD`) which could return an error at handling memory, reading the header or finding invalid data. `isEXM` will be true if `null` and the name ends with `.exm`
+<br>&emsp;Creates a `Model` struct out of the file specified by `name` (relative to `CWD`) which could return an error at handling memory, reading the header or finding invalid data. `isEXM` will be true if `null` and `name` ends with `.exm`
 
 
 ### Roadmap:
