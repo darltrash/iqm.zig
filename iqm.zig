@@ -124,7 +124,7 @@ fn grab(data: []const u8, where: usize, comptime T: type) T {
     return @bitCast(T, raw.*);
 }
 
-pub fn readBuffer(data: []const u8, isEXM: bool, alloc: std.mem.Allocator) !Model {
+pub fn fromBuffer(data: []const u8, isEXM: bool, alloc: mem.Allocator) !Model {
     // I am sorry big endian friends :(
     comptime if (@import("builtin").target.cpu.arch.endian() == .Big)
         return error.UnsupportedEndian;
@@ -139,7 +139,6 @@ pub fn readBuffer(data: []const u8, isEXM: bool, alloc: std.mem.Allocator) !Mode
     // Only version 2 supported.
     if (header.version != 2)
         return error.IncorrectVersion;
-
 
     ////// HANDLE TEXT //////////
     // NOTE: I feel like this could be faster AND simpler 🤔
@@ -256,4 +255,13 @@ pub fn readBuffer(data: []const u8, isEXM: bool, alloc: std.mem.Allocator) !Mode
     };
 
     return out;
+}
+
+pub fn fromFile(name: []const u8, isEXM: ?bool, alloc: mem.Allocator) !Model {
+    var file = try std.fs.cwd().openFile(name, .{ .read = true });
+    defer file.close();
+
+    var raw = try file.readToEndAlloc(alloc, std.math.maxInt(usize));
+
+    return try fromBuffer(raw, isEXM orelse mem.endsWith(u8, name, ".exm"), alloc);
 }
