@@ -10,16 +10,24 @@ A simple (and incomplete) IQM importer written in Zig
 ```zig
 const iqm = @import("iqm.zig");
 
-var model_raw = @embedFile("model.iqm");
-var model = try iqm.readBuffer(model_raw, false, allocator_of_choice);
-var mesh = model.meshes[0];
+var modelA_raw = @embedFile("assets/modelA.iqm");
+var modelA = try iqm.fromBuffer(model_raw, false, allocator_of_choice);
+var modelB = try iqm.fromFile("assets/modelB.iqm", null, allocator_of_choice);
 
-try renderer.renderMesh(model, mesh);
+var meshA = modelA.meshes[0];
+var meshB = modelB.meshes[0];
+
+try renderer.renderMesh(modelA, meshA);
+try renderer.renderMesh(modelB, meshB);
 ```
 
 ### Documentation:
-- **`readBuffer(data: []const u8, isEXM: bool, alloc: std.mem.Allocator) !Model`**:
-<br>&emsp;Creates a Model struct out of `data` which could return an error at handling memory, reading the header or finding invalid data.
+- **`fromBuffer(data: []const u8, isEXM: bool, alloc: std.mem.Allocator) !Model`**:
+<br>&emsp;Creates a `Model` struct out of `data` which could return an error at handling memory, reading the header or finding invalid data.
+
+- **`fromFile(name: []const u8, isEXM: ?bool, alloc: std.mem.Allocator) !Model`**:
+<br>&emsp;Creates a `Model` struct out of the file specified by `name` (relative to `CWD`) which could return an error at handling memory, reading the header or finding invalid data. `isEXM` will be true if `null` and the name ends with `.exm`
+
 
 ### Roadmap:
 - [X] Vertex arrays
@@ -33,4 +41,6 @@ try renderer.renderMesh(model, mesh);
 #### Extra roadmap:
 - [ ] Basic OpenGL renderer example
 - [ ] C Exports
+  - [ ] Basic OpenGL C renderer example
+  - [ ] C++ "bindings" or whatever they're named
 - [ ] Big endian support
