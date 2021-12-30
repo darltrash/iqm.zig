@@ -4,7 +4,7 @@ A simple (and incomplete) IQM importer written in Zig
 > **NOTE:** As the title says, this is *INCOMPLETE* and thus *not really useful for anything but basic IQM file loading*
 
 ### How to setup:
-- Download the `iqm.zig` file and `@import()` it up!
+- Download the `iqm.zig` file and `@import()` it up in your project! *It has no other dependency than the Zig Standard Library itself*.
 
 ### Code example:
 ```zig
@@ -44,3 +44,10 @@ try renderer.renderMesh(modelB, meshB);
   - [ ] Basic OpenGL C renderer example
   - [ ] C++ "bindings" or whatever they're named
 - [ ] Big endian support
+
+### Anti-roadmap (things that wont get implemented):
+- IQM/EXM Exporting.
+
+
+### License:
+This project is covered under the ZLIB License and the license is bundled with the library, check out `iqm.zig`.
