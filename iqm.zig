@@ -3,7 +3,7 @@
 
 // zlib License
 // 
-// (C) 2021 Nelson "darltrash" Lopez
+// (C) 2022 Nelson "darltrash" Lopez
 // 
 // This software is provided 'as-is', without any express or implied
 // warranty.  In no event will the authors be held liable for any damages
