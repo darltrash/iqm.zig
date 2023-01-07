@@ -33,20 +33,16 @@ try renderer.renderMesh(modelB, meshB);
 - [X] Vertex arrays
 - [X] Vertex indices/triangles
 - [X] Texts
-- [ ] Materials
+- [X] Materials
 - [ ] Poses/Animations
 - [X] Meshes
 - [ ] EXM data 
 
 #### Extra roadmap:
 - [ ] Basic OpenGL renderer example
-- [ ] C Exports
-  - [ ] Basic OpenGL C renderer example
-  - [ ] C++ "bindings" or whatever they're named
-- [ ] Big endian support
 
 ### Anti-roadmap (things that wont get implemented):
-- IQM/EXM Exporting.
+- Exporting.
 
 
 ### License:
