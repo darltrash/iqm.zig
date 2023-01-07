@@ -23,14 +23,15 @@
 
 const std = @import("std");
 const log = std.log.scoped(.iqm);
+const json = std.json;
 const mem = std.mem;
 
-const VertexArrayType = enum(c_int) {
+pub const VertexArrayType = enum(c_int) {
     position = 0, texcoord, normal, tangent, 
     blendindices, blendweights, color
 };
 
-const VertexArray = struct {
+pub const VertexArray = struct {
     type_: VertexArrayType,
     flags: u32,
     format: c_int,
@@ -38,7 +39,7 @@ const VertexArray = struct {
     offset: u32
 };
 
-const RawMesh = struct {
+pub const RawMesh = struct {
     name: u32,
     material: u32,
     first_vertex: u32,
@@ -49,31 +50,44 @@ const RawMesh = struct {
 
 const Mesh = struct {
     name: []const u8,
+    material: []const u8,
 
     vertex_count: u32,
     vertex_offset: u32,
 
-    index_count: u32,
-    index_offset: u32
+    triangle_count: u32,
+    triangle_offset: u32
 };
 
-pub const EXMData = struct {};
+pub const EXMLight = struct {
+    name: []u8,
+    type: []u8,
+    position: [3]f32,
+    color: [4]f32,
+    transform: [4*4]f32, 
+    power: f32,
+    specular: f32
+};
+
+pub const EXMData = struct {
+    lights: []EXMLight
+};
 
 pub const Model = struct {
     header: Header,
     meshes: []Mesh,
 
-    texts:     [][]u8,
     indices:   []u32,
+    vertices:  usize,
 
-    positions: ?[]f32,
-    texcoords: ?[]f32,
-    normals:   ?[]f32,
-    tangents:  ?[]f32,
+    positions: []f32,
+    texcoords: []f32,
+    normals:   []f32,
+    tangents:  []f32,
 
-    blend_indices: ?[]u8,
-    blend_weights: ?[]u8,
-    color:        ?[]u8,
+    blend_indices: []u8,
+    blend_weights: []u8,
+    color:         []u8,
 
     exm_data: ?EXMData = null
 };
@@ -124,6 +138,11 @@ fn grab(data: []const u8, where: usize, comptime T: type) T {
     return @bitCast(T, raw.*);
 }
 
+fn grabString(data: []const u8, where: usize) []const u8 {
+    const str = @ptrCast([*c]const u8, data.ptr+where);
+    return str[0..std.mem.len(str)];
+}
+
 pub fn fromBuffer(data: []const u8, isEXM: bool, alloc: mem.Allocator) !Model {
     // I am sorry big endian friends :(
     comptime if (@import("builtin").target.cpu.arch.endian() == .Big)
@@ -140,29 +159,6 @@ pub fn fromBuffer(data: []const u8, isEXM: bool, alloc: mem.Allocator) !Model {
     if (header.version != 2)
         return error.IncorrectVersion;
 
-    ////// HANDLE TEXT //////////
-    // NOTE: I feel like this could be faster AND simpler 🤔
-    var tx_idx: usize = 0;
-    var tx_max = @intCast(usize, header.num_text);
-    var tx_ofs = @intCast(usize, header.ofs_text);
-    var tx_arl = std.ArrayList(u8).init(alloc);
-    var texts = try alloc.alloc([]u8, tx_max);
-    
-    for (data[tx_ofs..]) |v| {
-        if (v == 0) {
-            texts[tx_idx] = tx_arl.toOwnedSlice();
-            tx_idx += 1;
-            if (tx_idx > tx_max-1)
-                break;
-            continue;
-        }
-        try tx_arl.append(v);
-    }
-
-    tx_arl.deinit();
-
-
-    // TODO: Handle materials!
 
     // TODO: Handle animations!
 
@@ -189,14 +185,13 @@ pub fn fromBuffer(data: []const u8, isEXM: bool, alloc: mem.Allocator) !Model {
             .normal   => va_normal   = @bitCast([]const f32, data[va_current.offset..va_current.offset+(vx_max*3)]),
             .tangent  => va_tangent  = @bitCast([]const f32, data[va_current.offset..va_current.offset+(vx_max*4)]),
 
-            .blendindices =>  mem.copy(u8, va_blend_indices, data[va_current.offset..va_current.offset+(vx_max*4)]),
-            .blendweights =>  mem.copy(u8, va_blend_weights, data[va_current.offset..va_current.offset+(vx_max*4)]),
-            .color        =>  mem.copy(u8, va_color,         data[va_current.offset..va_current.offset+(vx_max*4)])
+            .blendindices => mem.copy(u8, va_blend_indices,  data[va_current.offset..va_current.offset+(vx_max*4)]),
+            .blendweights => mem.copy(u8, va_blend_weights,  data[va_current.offset..va_current.offset+(vx_max*4)]),
+            .color        => mem.copy(u8, va_color,          data[va_current.offset..va_current.offset+(vx_max*4)])
         }
 
         va_idx += 1;
     }
-
 
     ////// HANDLE TRIANGLES //////////
     var tr_idx: usize = 0;
@@ -206,43 +201,53 @@ pub fn fromBuffer(data: []const u8, isEXM: bool, alloc: mem.Allocator) !Model {
 
     while (tr_idx < tr_max) {
         var triangle = grab(data, tr_off+(tr_idx*@sizeOf([3]u32)), [3]u32);
-        indices[(tr_idx*3)+0] = triangle[0];
-        indices[(tr_idx*3)+1] = triangle[1];
-        indices[(tr_idx*3)+2] = triangle[2];
+        indices[(tr_idx*3)+0] = @intCast(u32, triangle[0]);
+        indices[(tr_idx*3)+1] = @intCast(u32, triangle[1]);
+        indices[(tr_idx*3)+2] = @intCast(u32, triangle[2]);
         tr_idx += 1;
     }
 
-
-    ////// HANDLE MESHES //////////
+    ////// HANDLE MESHES ////////// 
     var me_idx: usize = 0;
     var me_max = @intCast(usize, header.num_meshes);
     var me_off = @intCast(usize, header.ofs_meshes);
     var meshes = try alloc.alloc(Mesh, me_max);
-
     while (me_idx < me_max) {
         var mesh = grab(data, me_off+(me_idx*@sizeOf(RawMesh)), RawMesh);
+
         meshes[me_idx] = Mesh {
-            .name = texts[mesh.name],
+            .name = grabString(data, header.ofs_text+mesh.name),
+            .material = grabString(data, header.ofs_text+mesh.material),
 
             .vertex_count = mesh.num_vertices,
             .vertex_offset = mesh.first_vertex,
-            .index_count = mesh.num_triangles*3,
-            .index_offset = mesh.first_triangle*3
+            .triangle_count = mesh.num_triangles,
+            .triangle_offset = mesh.first_triangle
         };
 
         me_idx += 1;
     }
 
-    if (isEXM) {
-        // TODO: Handle EXM Data!
-    }
+    _ = isEXM;
+    //if (isEXM) {
+    //    var str = grabString(data, header.ofs_comment);
+    //    if (str.len > 0) {
+    //        var stream = json.TokenStream.init(str);
+    //        var res = try json.parse(EXMData, &stream, .{ 
+    //            .allocator = alloc,
+    //            .ignore_unknown_fields = true 
+    //        });
+    //
+    //        log.info("{any}", .{res});
+    //    }
+    //}
 
     var out = Model { 
         .header = header,
         .meshes = meshes,
 
-        .texts   = texts,
         .indices = indices,
+        .vertices = @intCast(usize, header.num_vertexes),
 
         .positions = va_position,
         .texcoords = va_texcoord,
